@@ -1,5 +1,5 @@
 PKG = github.com/vt6/vt6-website-build
-BIN = $(basename $(PKG))
+BIN = $(notdir $(PKG))
 PREFIX = /usr
 
 all: $(BIN)
@@ -10,6 +10,9 @@ GO_LDFLAGS    = -s -w
 
 $(BIN): FORCE
 	$(GO) install $(GO_BUILDFLAGS) -ldflags '$(GO_LDFLAGS)' '$(PKG)'
+
+run: $(BIN) FORCE
+	./$(BIN) ../vt6/ output/
 
 install: FORCE all
 	install -D -m 0755 build/$(BIN) "$(DESTDIR)$(PREFIX)/bin/$(BIN)"
