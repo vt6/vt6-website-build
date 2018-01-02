@@ -19,11 +19,17 @@
 package main
 
 import (
+	"bytes"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"html"
 	"html/template"
 	"io/ioutil"
+	"math/rand"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -117,6 +123,25 @@ func (s SourceFile) Render() (Page, error) {
 		-1,
 	)
 
+	//compile TikZ code into SVGs
+	tikzOpening := `<pre><code class="language-tikz">`
+	tikzClosing := `</code></pre>`
+	tikzRx := regexp.MustCompile(tikzOpening + `(?s)(.*?)` + tikzClosing)
+	err = nil
+	contentHTML = tikzRx.ReplaceAllStringFunc(contentHTML, func(match string) string {
+		match = strings.TrimPrefix(match, tikzOpening)
+		match = strings.TrimSuffix(match, tikzClosing)
+		match = html.UnescapeString(match)
+		str, err2 := compileTikzPicture(match)
+		if err == nil {
+			err = err2
+		}
+		return str
+	})
+	if err != nil {
+		return Page{}, err
+	}
+
 	//recognize draft marker ...
 	fields := strings.SplitN(contentHTML, "\n", 2)
 	firstLine := fields[0]
@@ -193,4 +218,65 @@ func extractTitle(urlPath string, contentHTML string) (title, description string
 	}
 
 	return
+}
+
+//Takes in some LaTeX/TikZ source code and returns the rendered SVG.
+func compileTikzPicture(code string) (svgCode string, returnErr error) {
+	//split preamble from drawing code
+	fields := regexp.MustCompile(`(?m)^---\s*$`).Split(code, 2)
+	if len(fields) < 2 {
+		return "", errors.New("cannot find preamble separator")
+	}
+	preamble := strings.TrimSpace(fields[0])
+	drawingCode := strings.TrimSpace(fields[1])
+
+	//create temp directory for compilation
+	randomBytes := make([]byte, 32)
+	rand.Read(randomBytes)
+	tempDir := filepath.Join(
+		os.TempDir(),
+		"vt6-website-build-"+hex.EncodeToString(randomBytes),
+	)
+	err := os.MkdirAll(tempDir, 0700)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if returnErr == nil {
+			returnErr = os.RemoveAll(tempDir)
+		}
+	}()
+
+	//prepare full LaTeX source file
+	fullCode := "\\documentclass[tikz]{standalone}\n" +
+		preamble + "\\begin{document}\\begin{tikzpicture}\n" +
+		drawingCode + "\\end{tikzpicture}\\end{document}\n"
+	err = ioutil.WriteFile(filepath.Join(tempDir, "picture.tex"), []byte(fullCode), 0600)
+	if err != nil {
+		return "", err
+	}
+
+	//run pdflatex
+	cmd := exec.Command("pdflatex", "-interaction", "nonstopmode", "picture")
+	cmd.Dir = tempDir
+	cmd.Stdin = nil
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	err = cmd.Run()
+	if err != nil {
+		return "", fmt.Errorf("exec pdflatex failed: %s", err.Error())
+	}
+
+	//run pdf2svg
+	cmd = exec.Command("pdf2svg", "picture.pdf", "/dev/fd/1", "1")
+	cmd.Dir = tempDir
+	cmd.Stdin = nil
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = os.Stderr
+	err = cmd.Run()
+	if err != nil {
+		return "", fmt.Errorf("exec pdflatex failed: %s", err.Error())
+	}
+	return buf.String(), nil
 }
