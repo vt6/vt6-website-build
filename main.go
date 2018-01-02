@@ -80,5 +80,9 @@ func main2() error {
 		}
 	}
 
-	return nil
+	//copy static assets
+	return CopyAssets(
+		filepath.Join(inputDir, "website/static"),
+		filepath.Join(outputDir, "static"),
+	)
 }
