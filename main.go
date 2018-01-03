@@ -69,11 +69,21 @@ func main2() error {
 	if err != nil {
 		return err
 	}
-	for _, sourceFile := range sourceFiles {
+	pages := make([]*Page, len(sourceFiles))
+	for idx, sourceFile := range sourceFiles {
 		page, err := sourceFile.Render()
 		if err != nil {
 			return err
 		}
+		pages[idx] = &page
+	}
+	navTree := NewNavigationTree(sourceFiles)
+	for _, page := range pages {
+		page.AddNavigation(navTree)
+	}
+
+	//write resulting HTML pages to output directory
+	for _, page := range pages {
 		err = page.WriteTo(outputDir)
 		if err != nil {
 			return err

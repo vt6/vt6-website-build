@@ -24,6 +24,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 var pageTmpl *template.Template
@@ -39,11 +40,13 @@ func initPageTemplate(inputDir string) error {
 
 //Page represents all the metadata and content of a HTML page on this website.
 type Page struct {
-	Path        string //e.g. "std/core/1.0"
-	Title       string
-	Description string
-	IsDraft     bool
-	ContentHTML template.HTML
+	Path                string //e.g. "std/core/1.0"
+	Title               string
+	Description         string
+	IsDraft             bool
+	ContentHTML         template.HTML
+	UpwardsNavigation   []NavigationLink
+	DownwardsNavigation []NavigationLink
 }
 
 //WriteTo writes the HTML for this page to the corresponding path in the output
@@ -57,10 +60,7 @@ func (p Page) WriteTo(outputDir string) error {
 		return err
 	}
 
-	outputPath := filepath.Join(outputDir, p.Path)
-	if p.Path == "index" {
-		outputPath = outputDir
-	}
+	outputPath := filepath.Join(outputDir, strings.TrimPrefix(p.Path, "/"))
 	err = os.MkdirAll(outputPath, 0777)
 	if err != nil {
 		return err

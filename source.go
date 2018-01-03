@@ -96,9 +96,9 @@ func newSourceFile(path, relativePath string) SourceFile {
 	//"website/pages/index.md" instead of "website/pages/.md" because that would
 	//be a hidden file
 	if urlPath == "index" {
-		urlPath = "."
+		urlPath = "/"
 	} else {
-		urlPath = strings.TrimSuffix(urlPath, "/index")
+		urlPath = filepath.Join("/", strings.TrimSuffix(urlPath, "/index"))
 	}
 
 	return SourceFile{
@@ -210,11 +210,8 @@ func extractTitle(urlPath string, contentHTML string) (title, description string
 
 	//last-resort fallback for title
 	if title == "" {
-		fmt.Fprintf(os.Stderr,
-			"WARNING: cannot determine page title for %s\n",
-			filepath.Join("/", urlPath),
-		)
-		title = urlPath
+		fmt.Fprintf(os.Stderr, "WARNING: cannot determine page title for %s\n", urlPath)
+		title = strings.TrimPrefix(urlPath, "/")
 	}
 
 	return
