@@ -15,7 +15,7 @@ run: $(BIN) FORCE
 	./$(BIN) ../vt6/ output/
 
 install: FORCE all
-	install -D -m 0755 build/$(BIN) "$(DESTDIR)$(PREFIX)/bin/$(BIN)"
+	install -D -m 0755 $(BIN) "$(DESTDIR)$(PREFIX)/bin/$(BIN)"
 
 # vendoring by https://github.com/holocm/golangvend
 vendor: FORCE
