@@ -20,6 +20,7 @@ package main
 
 import (
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -76,6 +77,10 @@ func (p *Page) AddNavigation(root *NavigationTree) {
 			ntCollectDownwardsNav(tree, child)...,
 		)
 	}
+
+	sort.Slice(p.DownwardsNavigation, func(i, j int) bool {
+		return p.DownwardsNavigation[i].URLPath < p.DownwardsNavigation[j].URLPath
+	})
 }
 
 func ntCollectDownwardsNav(tree *NavigationTree, child *NavigationTree) []NavigationLink {
