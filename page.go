@@ -45,6 +45,7 @@ type Page struct {
 	Description         string
 	IsDraft             bool
 	ContentHTML         template.HTML
+	TableOfContentsHTML template.HTML
 	UpwardsNavigation   []NavigationLink
 	DownwardsNavigation []NavigationLink
 }
