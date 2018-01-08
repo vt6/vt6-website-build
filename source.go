@@ -20,6 +20,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -27,7 +28,6 @@ import (
 	"html"
 	"html/template"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -133,15 +133,20 @@ func (s SourceFile) Render() (Page, error) {
 	tikzClosing := `</code></pre>`
 	tikzRx := regexp.MustCompile(tikzOpening + `(?s)(.*?)` + tikzClosing)
 	err = nil
+	var assets []Asset
 	contentHTML = tikzRx.ReplaceAllStringFunc(contentHTML, func(match string) string {
 		match = strings.TrimPrefix(match, tikzOpening)
 		match = strings.TrimSuffix(match, tikzClosing)
 		match = html.UnescapeString(match)
-		str, err2 := compileTikzPicture(match)
+		asset, err2 := compileTikzPicture(match)
 		if err == nil {
 			err = err2
 		}
-		return str
+		if asset.Path != "" {
+			assets = append(assets, asset)
+		}
+		//TODO "alt" attribute
+		return "<img class=\"svg\" src=\"/" + asset.Path + "\" />"
 	})
 	if err != nil {
 		return Page{}, err
@@ -206,29 +211,31 @@ func (s SourceFile) Render() (Page, error) {
 		IsDraft:             isDraft,
 		ContentHTML:         template.HTML(contentHTML),
 		TableOfContentsHTML: template.HTML(RenderTableOfContents(toc)),
+		Assets:              assets,
 	}, nil
 }
 
 //Takes in some LaTeX/TikZ source code and returns the rendered SVG.
-func compileTikzPicture(code string) (svgCode string, returnErr error) {
+func compileTikzPicture(code string) (asset Asset, returnErr error) {
+	pictureHash := md5.Sum([]byte(code))
+	pictureID := hex.EncodeToString(pictureHash[:])
+
 	//split preamble from drawing code
 	fields := regexp.MustCompile(`(?m)^---\s*$`).Split(code, 2)
 	if len(fields) < 2 {
-		return "", errors.New("cannot find preamble separator")
+		return Asset{}, errors.New("cannot find preamble separator")
 	}
 	preamble := strings.TrimSpace(fields[0])
 	drawingCode := strings.TrimSpace(fields[1])
 
 	//create temp directory for compilation
-	randomBytes := make([]byte, 32)
-	rand.Read(randomBytes)
 	tempDir := filepath.Join(
 		os.TempDir(),
-		"vt6-website-build-"+hex.EncodeToString(randomBytes),
+		"vt6-website-build-"+pictureID,
 	)
 	err := os.MkdirAll(tempDir, 0700)
 	if err != nil {
-		return "", err
+		return Asset{}, err
 	}
 	defer func() {
 		if returnErr == nil {
@@ -242,7 +249,7 @@ func compileTikzPicture(code string) (svgCode string, returnErr error) {
 		drawingCode + "\\end{tikzpicture}\\end{document}\n"
 	err = ioutil.WriteFile(filepath.Join(tempDir, "picture.tex"), []byte(fullCode), 0600)
 	if err != nil {
-		return "", err
+		return Asset{}, err
 	}
 
 	//run pdflatex
@@ -253,7 +260,7 @@ func compileTikzPicture(code string) (svgCode string, returnErr error) {
 	cmd.Stderr = nil
 	err = cmd.Run()
 	if err != nil {
-		return "", fmt.Errorf("exec pdflatex failed: %s", err.Error())
+		return Asset{}, fmt.Errorf("exec pdflatex failed: %s", err.Error())
 	}
 
 	//run pdf2svg
@@ -265,7 +272,7 @@ func compileTikzPicture(code string) (svgCode string, returnErr error) {
 	cmd.Stderr = os.Stderr
 	err = cmd.Run()
 	if err != nil {
-		return "", fmt.Errorf("exec pdflatex failed: %s", err.Error())
+		return Asset{}, fmt.Errorf("exec pdflatex failed: %s", err.Error())
 	}
-	return buf.String(), nil
+	return Asset{Path: "svg/" + pictureID + ".svg", Content: buf.Bytes()}, nil
 }

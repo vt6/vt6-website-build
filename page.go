@@ -24,7 +24,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 var pageTmpl *template.Template
@@ -38,6 +37,12 @@ func initPageTemplate(inputDir string) error {
 	return err
 }
 
+//Asset represents a static file that is used by a Page.
+type Asset struct {
+	Path    string
+	Content []byte
+}
+
 //Page represents all the metadata and content of a HTML page on this website.
 type Page struct {
 	Path                string //e.g. "std/core/1.0"
@@ -48,6 +53,7 @@ type Page struct {
 	TableOfContentsHTML template.HTML
 	UpwardsNavigation   []NavigationLink
 	DownwardsNavigation []NavigationLink
+	Assets              []Asset
 }
 
 //WriteTo writes the HTML for this page to the corresponding path in the output
@@ -61,15 +67,28 @@ func (p Page) WriteTo(outputDir string) error {
 		return err
 	}
 
-	outputPath := filepath.Join(outputDir, strings.TrimPrefix(p.Path, "/"))
-	err = os.MkdirAll(outputPath, 0777)
+	err = mkdirAllAndWriteFile(
+		filepath.Join(outputDir, p.Path, "index.html"),
+		append(bytes.TrimSpace(buf.Bytes()), '\n'),
+	)
 	if err != nil {
 		return err
 	}
 
-	return ioutil.WriteFile(
-		filepath.Join(outputPath, "index.html"),
-		append(bytes.TrimSpace(buf.Bytes()), '\n'),
-		0666,
-	)
+	for _, asset := range p.Assets {
+		err = mkdirAllAndWriteFile(filepath.Join(outputDir, asset.Path), asset.Content)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func mkdirAllAndWriteFile(path string, content []byte) error {
+	err := os.MkdirAll(filepath.Dir(path), 0777)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path, content, 0666)
 }
