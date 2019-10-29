@@ -4,6 +4,9 @@ PREFIX = /usr
 
 all: $(BIN)
 
+# NOTE: This repo uses Go modules, and uses a synthetic GOPATH at
+# $(CURDIR)/.gopath that is only used for the build cache. $GOPATH/src/ is
+# empty.
 GO            = GOPATH=$(CURDIR)/.gopath GOBIN=$(CURDIR) go
 GO_BUILDFLAGS =
 GO_LDFLAGS    = -s -w
@@ -17,8 +20,8 @@ run: $(BIN) FORCE
 install: FORCE all
 	install -D -m 0755 $(BIN) "$(DESTDIR)$(PREFIX)/bin/$(BIN)"
 
-# vendoring by https://github.com/holocm/golangvend
 vendor: FORCE
-	@golangvend
+	$(GO) mod tidy
+	$(GO) mod vendor
 
 .PHONY: FORCE

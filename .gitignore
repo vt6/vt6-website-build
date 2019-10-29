@@ -1,8 +1,6 @@
 # build artifacts
 vt6-website-build
-
-# vendoring
-.golangvend-cache
+.gopath/pkg/
 
 # runtime artifacts
 output/

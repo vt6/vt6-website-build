@@ -34,7 +34,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/golang-commonmark/markdown"
+	"gitlab.com/golang-commonmark/markdown"
 )
 
 //SourceFile represents a Markdown source file.

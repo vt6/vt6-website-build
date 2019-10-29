@@ -24,7 +24,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/golang-commonmark/markdown"
+	"gitlab.com/golang-commonmark/markdown"
 )
 
 //TOCEntry is an entry in the table of contents.
